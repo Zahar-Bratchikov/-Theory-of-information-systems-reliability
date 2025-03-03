@@ -1,37 +1,38 @@
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy.integrate import quad
 
-# Функция плотности распределения Симпсона (PDF)
+
+# Функция плотности распределения Симпсона
 def simpson_pdf(t, a, b):
     if a <= t <= b:
         return (2 / (b - a)) - (2 / (b - a) ** 2) * abs(a + b - 2 * t)
     else:
         return 0
 
+
 # Средняя наработка до отказа (MTTF) - математическое ожидание
 def mean(a, b):
-    return (a + b) / 2
+    integrand = lambda t: t * simpson_pdf(t, a, b)
+    return quad(integrand, a, b)[0]
+
 
 # Дисперсия времени до отказа
 def variance(a, b):
-    return (b - a) ** 2 / 8
+    mean_val = mean(a, b)
+    integrand = lambda t: (t - mean_val) ** 2 * simpson_pdf(t, a, b)
+    return quad(integrand, a, b)[0]
+
 
 # Среднеквадратическое отклонение (СКО) - корень из дисперсии
 def std_dev(a, b):
     return variance(a, b) ** 0.5
 
-# Численное интегрирование методом прямоугольников
-def integrate(f, start, end, steps=1000):
-    step = (end - start) / steps
-    area = 0
-    for i in range(steps):
-        x = start + i * step
-        area += f(x) * step
-    return area
 
 # Вероятность безотказной работы (R(t)) - интеграл плотности вероятности от t до b
 def reliability(t, a, b):
-    return integrate(lambda x: simpson_pdf(x, a, b), t, b)
+    return quad(lambda x: simpson_pdf(x, a, b), t, b)[0]
+
 
 # Интенсивность отказов (λ(t)) - отношение плотности вероятности к вероятности безотказной работы
 def failure_rate(t, a, b):
@@ -39,21 +40,22 @@ def failure_rate(t, a, b):
     r_t = reliability(t, a, b)  # Вероятность безотказной работы R(t)
     return f_t / r_t if r_t > 0 else 0
 
+
 # Гамма-процентная наработка - значение времени, при котором наработка достигает γ% отказов
 def gamma_quantile(gamma, a, b):
     target = gamma / 100  # Преобразуем процент в долю
-    t = a  # Начинаем с нижней границы
-    step = (b - a) / 10000  # Шаг для перебора значений
-    accumulated = 0  # Накопленная вероятность
+    t = a
+    step = (b - a) / 10000
+    accumulated = 0
 
-    # Численно находим момент времени t, при котором достигается заданная вероятность
     while t <= b:
         accumulated += simpson_pdf(t, a, b) * step
         if accumulated >= target:
             return t
         t += step
 
-    return b  # Если не нашли, возвращаем верхнюю границу
+    return b
+
 
 # Функция для построения графиков плотности, вероятности, интенсивности и гамма-наработки
 def plot_graphs(a, b):
@@ -100,6 +102,7 @@ def plot_graphs(a, b):
 
     plt.tight_layout()
     plt.show()
+
 
 # Задаем параметры распределения Симпсона (границы a и b)
 a, b = 23, 1000
