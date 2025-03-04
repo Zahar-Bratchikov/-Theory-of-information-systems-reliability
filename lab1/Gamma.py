@@ -2,7 +2,6 @@ import numpy as np
 import scipy.stats as stats
 import matplotlib.pyplot as plt
 
-
 # Заданные параметры гамма-распределения
 k = 3   # форма
 theta = 2  # масштаб
@@ -27,35 +26,39 @@ D_t = k * theta ** 2  # Дисперсия
 std_dev = np.sqrt(D_t)  # Среднее квадратическое отклонение
 
 # Визуализация
-fig, ax = plt.subplots(4, 1, figsize=(8, 20))
+fig, ax = plt.subplots(2, 2, figsize=(14, 10))
 
-ax[0].plot(t, pdf, label='Плотность вероятности (PDF)')
-ax[0].set_title('Плотность распределения Парето')
-ax[0].set_xlabel('Время')
-ax[0].set_ylabel('Плотность')
-ax[0].legend()
-ax[0].grid()
+# График 1: Плотность вероятности (PDF)
+ax[0, 0].plot(t, pdf, label='Плотность вероятности (PDF)')
+ax[0, 0].set_title('Плотность распределения Парето')
+ax[0, 0].set_xlabel('Время')
+ax[0, 0].set_ylabel('Плотность')
+ax[0, 0].legend()
+ax[0, 0].grid()
 
-ax[1].plot(gamma_values * 100, T_gamma, marker='o', linestyle='-', color='blue', label='Гамма-процентная наработка')
-ax[1].set_title('Гамма-процентная наработка до отказа')
-ax[1].set_xlabel('Процент (γ)')
-ax[1].set_ylabel('Время Tγ')
-ax[1].legend()
-ax[1].grid()
+# График 2: Гамма-процентная наработка
+ax[0, 1].plot(gamma_values * 100, T_gamma, marker='o', linestyle='-', color='blue', label='Гамма-процентная наработка')
+ax[0, 1].set_title('Гамма-процентная наработка до отказа')
+ax[0, 1].set_xlabel('Процент (γ)')
+ax[0, 1].set_ylabel('Время Tγ')
+ax[0, 1].legend()
+ax[0, 1].grid()
 
-ax[2].plot(t, P_t, label='Вероятность безотказной работы', color='purple')
-ax[2].set_title('Вероятность безотказной работы')
-ax[2].set_xlabel('Время')
-ax[2].set_ylabel('P(T > t)')
-ax[2].legend()
-ax[2].grid()
+# График 3: Вероятность безотказной работы
+ax[1, 0].plot(t, P_t, label='Вероятность безотказной работы', color='purple')
+ax[1, 0].set_title('Вероятность безотказной работы')
+ax[1, 0].set_xlabel('Время')
+ax[1, 0].set_ylabel('P(T > t)')
+ax[1, 0].legend()
+ax[1, 0].grid()
 
-ax[3].plot(t, lambda_t, label='Интенсивность отказов', color='red')
-ax[3].set_title('График интенсивности отказов')
-ax[3].set_xlabel('Время')
-ax[3].set_ylabel('λ(t)')
-ax[3].legend()
-ax[3].grid()
+# График 4: Интенсивность отказов
+ax[1, 1].plot(t, lambda_t, label='Интенсивность отказов', color='red')
+ax[1, 1].set_title('График интенсивности отказов')
+ax[1, 1].set_xlabel('Время')
+ax[1, 1].set_ylabel('λ(t)')
+ax[1, 1].legend()
+ax[1, 1].grid()
 
 plt.tight_layout()
 plt.show()
@@ -64,5 +67,3 @@ plt.show()
 print("Средняя наработка до отказа (MTTF):", T_m)
 print("Дисперсия времени безотказной работы:", D_t)
 print("Среднее квадратическое отклонение:", std_dev)
-
-
