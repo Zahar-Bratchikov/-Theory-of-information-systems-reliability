@@ -23,7 +23,7 @@ def simpson_integrate(func, a, b, n=1000):
             s += 4 * func(t)
     return s * h / 3
 
-# Функция плотности распределения времени до отказа по закону распределения Симпсона, обозначаемая как f(t)
+# Функция плотности распределения времени до отказа по закону распределения Симпсона, f(t)
 def f(t, a, b):
     if a <= t <= b:
         return (2 / (b - a)) - (2 / (b - a)**2) * abs(a + b - 2*t)
@@ -58,8 +58,8 @@ def lambda_t(t, a, b):
     P_val = P(t, a, b)
     return f(t, a, b) / P_val if P_val > 0 else 0
 
-# Гамма-процентная наработка до отказа T_gamma:
-# Определяем такое t, что 1 - ∫[a, t] f(x) dx = (γ/100)
+# Гамма-процентная наработка T_gamma:
+# Находим такое t, что 1 - ∫[a, t] f(x) dx = γ/100
 def T_gamma(gamma, a, b, tol=1e-4):
     target = gamma / 100  # требуемая доля отказов
     low = a
@@ -67,81 +67,73 @@ def T_gamma(gamma, a, b, tol=1e-4):
     while high - low > tol:
         mid = (low + high) / 2
         F_mid = simpson_integrate(lambda x: f(x, a, b), a, mid, n=1000)
-        survival = 1 - F_mid  # вероятность безотказной работы до mid
+        survival = 1 - F_mid  # вероятность безотказной работы
         if survival > target:
             low = mid
         else:
             high = mid
     return (low + high) / 2
 
-# Функция для построения графиков характеристик:
-# 1. P(t): Вероятность безотказной работы
-# 5. f(t): Плотность распределения времени до отказа
-# 4. λ(t): Интенсивность отказов
-# 6. T_gamma: Гамма-процентная наработка до отказа
+# Функция для построения графиков:
+# Строим графики для:
+#   - Плотности распределения f(t),
+#   - Вероятности безотказной работы P(t),
+#   - Гамма-процентной наработки T_gamma,
+#   - Интенсивности отказов λ(t)
 def plot_graphs(a, b):
     t_values = np.linspace(a, b, 1000)
-    f_values = [f(t, a, b) for t in t_values]              # f(t)
-    P_values = [P(t, a, b) for t in t_values]                # P(t)
-    lambda_values = [lambda_t(t, a, b) for t in t_values]    # λ(t)
-    T_gamma_values = [T_gamma(g, a, b) for g in range(0, 101, 10)]  # T_gamma при γ=0,10,...,100
+    f_values = [f(t, a, b) for t in t_values]
+    P_values = [P(t, a, b) for t in t_values]
+    lambda_values = [lambda_t(t, a, b) for t in t_values]
+    gamma_labels = list(range(0, 101, 10))
+    T_gamma_values = [T_gamma(g, a, b) for g in gamma_labels]
 
-    plt.figure(figsize=(12, 8))
+    fig, axs = plt.subplots(2, 2, figsize=(14, 10))
 
     # График 1: Плотность распределения f(t)
-    plt.subplot(2, 2, 1)
-    plt.plot(t_values, f_values, label="f(t)", color="tab:blue")
-    plt.xlabel("Время t")
-    plt.ylabel("f(t)")
-    plt.title("5. Плотность распределения времени до отказа f(t)")
-    plt.legend()
-    plt.grid()
+    axs[0, 0].plot(t_values, f_values, label="f(t)", color="tab:blue")
+    axs[0, 0].set_xlabel("Время t")
+    axs[0, 0].set_ylabel("f(t)")
+    axs[0, 0].set_title("Плотность распределения f(t)")
+    axs[0, 0].legend()
+    axs[0, 0].grid()
 
     # График 2: Вероятность безотказной работы P(t)
-    plt.subplot(2, 2, 2)
-    plt.plot(t_values, P_values, label="P(t)", color="tab:green")
-    plt.xlabel("Время t")
-    plt.ylabel("P(t)")
-    plt.title("1. Вероятность безотказной работы P(t)")
-    plt.legend()
-    plt.grid()
+    axs[0, 1].plot(t_values, P_values, label="P(t)", color="tab:green")
+    axs[0, 1].set_xlabel("Время t")
+    axs[0, 1].set_ylabel("P(t)")
+    axs[0, 1].set_title("Вероятность безотказной работы P(t)")
+    axs[0, 1].legend()
+    axs[0, 1].grid()
 
-    # График 3: Интенсивность отказов λ(t)
-    plt.subplot(2, 2, 3)
-    plt.plot(t_values, lambda_values, label="λ(t)", color="tab:red")
-    plt.xlabel("Время t")
-    plt.ylabel("λ(t)")
-    plt.title("4. Интенсивность отказов λ(t)")
-    plt.legend()
-    plt.grid()
+    # График 3: Гамма-процентная наработка T_gamma
+    axs[1, 0].plot(gamma_labels, T_gamma_values, "ko-", label="T_gamma")
+    axs[1, 0].set_xlabel("γ, %")
+    axs[1, 0].set_ylabel("Время T_gamma")
+    axs[1, 0].set_title("Гамма-процентная наработка T_gamma")
+    axs[1, 0].legend()
+    axs[1, 0].grid()
 
-    # График 4: Гамма-процентная наработка T_gamma
-    plt.subplot(2, 2, 4)
-    plt.plot(range(0, 101, 10), T_gamma_values, "ko-", label="T_gamma")
-    plt.xlabel("γ, %")
-    plt.ylabel("Время t")
-    plt.title("6. Гамма-процентная наработка T_gamma")
-    plt.legend()
-    plt.grid()
+    # График 4: Интенсивность отказов λ(t)
+    axs[1, 1].plot(t_values, lambda_values, label="λ(t)", color="tab:red")
+    axs[1, 1].set_xlabel("Время t")
+    axs[1, 1].set_ylabel("λ(t)")
+    axs[1, 1].set_title("Интенсивность отказов λ(t)")
+    axs[1, 1].legend()
+    axs[1, 1].grid()
 
     plt.tight_layout()
     plt.show()
 
-# Заданные параметры для распределения Симпсона: S(23, 1000)
+# Заданные параметры распределения Симпсона: S(23, 1000)
 a, b = 23, 1000
 
-# Вывод численных характеристик в консоль
-print("Simpson Distribution Characteristics (метод численного интегрирования Симпсона):")
-print("1. Вероятность безотказной работы P(t) при t = a (t = {}): {:.6f}".format(a, P(a, a, b)))
-print("2. Средняя наработка до отказа T_mid: {:.2f}".format(T_mid(a, b)))
-print("3. Дисперсия D: {:.2f}".format(D(a, b)))
-print("   Среднее квадратическое отклонение sigma: {:.2f}".format(sigma(a, b)))
-example_t = 500
-print("4. Интенсивность отказов λ(t) при t = {}: {:.6f}".format(example_t, lambda_t(example_t, a, b)))
-print("5. Плотность распределения f(t) при t = {}: {:.6f}".format(example_t, f(example_t, a, b)))
-print("6. Гамма-процентная наработка T_gamma:")
-for gamma in range(0, 101, 10):
-    print("   γ = {:3d}%  →  T_gamma = {:.2f}".format(gamma, T_gamma(gamma, a, b)))
+# Вывод в консоль численных характеристик, для которых графики не строятся
+print("Simpson Distribution Numerical Characteristics:")
+print("Средняя наработка до отказа T_mid: {:.2f}".format(T_mid(a, b)))
+print("Дисперсия D: {:.2f}".format(D(a, b)))
+print("Среднее квадратическое отклонение sigma: {:.2f}".format(sigma(a, b)))
+# Для параметров f(t), P(t), T_gamma и λ(t) строятся графики – консольный вывод не производится.
 
-# Построение графиков
+# Построение графиков для f(t), P(t), T_gamma и λ(t)
 plot_graphs(a, b)
