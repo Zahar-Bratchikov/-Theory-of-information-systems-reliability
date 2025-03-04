@@ -6,161 +6,145 @@ from scipy.integrate import quad
 from scipy.optimize import brentq
 
 # -----------------------------
-# Параметры распределений для элементов:
-# -----------------------------
-# Первый элемент: Gamma(9, 67) -> k=9, θ=67
+# Заданные параметры для элементов системы:
+# 1. Gamma-распределение: Г(9,67)
+#    - Форма: k1 = 9
+#    - Масштаб: theta1 = 67
+# 2. Экспоненциальное распределение: Exp(1.5e-4)
+#    - λ = 1.5e-4, scale = 1/λ
+# 3. Распределение Симпсона: S(23,1000)
+#    - Границы: a3 = 23, b3 = 1000, используем симметричное треугольное распределение с c=0.5
+
+# Gamma-распределение
 k1, theta1 = 9, 67
 dist1 = gamma(a=k1, scale=theta1)
 
-# Второй элемент: Exp(1.5e-4) -> λ = 1.5e-4, scale = 1/λ
+# Экспоненциальное распределение
 lmbd2 = 1.5e-4
 dist2 = expon(scale=1/lmbd2)
 
-# Третий элемент: Треугольное распределение S(23, 1000)
-# Для симметричного треугольного распределения mode = (a+b)/2
+# Симпсоновское распределение (как симметричное треугольное распределение)
 a3, b3 = 23, 1000
-mode3 = (a3 + b3) / 2
-c3 = (mode3 - a3) / (b3 - a3)  # для симметричного распределения должно быть 0.5
-dist3 = triang(c=c3, loc=a3, scale=(b3 - a3))
+dist3 = triang(c=0.5, loc=a3, scale=(b3 - a3))
 
 # -----------------------------
-# Функции для расчёта показателей системы
+# Функции для расчёта характеристик системы
 # -----------------------------
-def reliability(dist, t):
-    """Вероятность безотказной работы R(t) = 1 - F(t) для данного распределения."""
-    return dist.sf(t)
 
-def system_reliability(t):
-    """
-    Системная вероятность безотказной работы для последовательно соединённых элементов.
-    R_sys(t) = R1(t) * R2(t) * R3(t)
-    """
-    return reliability(dist1, t) * reliability(dist2, t) * reliability(dist3, t)
-
-def system_pdf(t):
-    """
-    Плотность распределения времени до отказа системы.
-    f_sys(t) = f1(t)*R2(t)*R3(t) + f2(t)*R1(t)*R3(t) + f3(t)*R1(t)*R2(t)
-    """
+# Плотность распределения времени до отказа системы f(t)
+# Для системы, соединённой последовательно, f(t) = сумма( f_i(t) * произведение(P_j(t)) ), j ≠ i,
+# где P_i(t) = вероятность безотказной работы i-го элемента = survival function.
+def f(t):
     f1 = dist1.pdf(t)
     f2 = dist2.pdf(t)
     f3 = dist3.pdf(t)
-    R1 = reliability(dist1, t)
-    R2 = reliability(dist2, t)
-    R3 = reliability(dist3, t)
-    return f1 * R2 * R3 + f2 * R1 * R3 + f3 * R1 * R2
+    P1 = dist1.sf(t)
+    P2 = dist2.sf(t)
+    P3 = dist3.sf(t)
+    return f1 * P2 * P3 + f2 * P1 * P3 + f3 * P1 * P2
 
-def system_hazard(t):
-    """Интенсивность отказов системы: h_sys(t) = f_sys(t) / R_sys(t)"""
-    R_sys = system_reliability(t)
-    f_sys = system_pdf(t)
-    with np.errstate(divide='ignore', invalid='ignore'):
-        h = np.where(R_sys > 0, f_sys / R_sys, 0)
-    return h
+# Вероятность безотказной работы системы P(t) = произведение(P_i(t)) для всех элементов
+def P(t):
+    return dist1.sf(t) * dist2.sf(t) * dist3.sf(t)
 
-def system_mttf(integral_limit=2000):
-    """
-    Средняя наработка до отказа (MTTF) системы:
-    MTTF = ∫₀∞ R_sys(t) dt.
-    """
-    mttf, _ = quad(system_reliability, 0, integral_limit)
-    return mttf
+# Интенсивность отказов системы λ(t) = f(t)/P(t)
+def lambda_t(t):
+    P_val = P(t)
+    return f(t) / P_val if P_val > 0 else 0
 
-def system_moment2(integral_limit=2000):
-    """
-    Второй момент времени безотказной работы системы:
-    E[T²] = ∫₀∞ 2t R_sys(t) dt.
-    """
-    moment2, _ = quad(lambda t: 2 * t * system_reliability(t), 0, integral_limit)
-    return moment2
+# Средняя наработка до отказа системы (T_mid) = ∫[0,∞] P(t) dt
+def T_mid(limit=20000):
+    val, _ = quad(P, 0, limit)
+    return val
 
-def system_ppf(q, t_min=0, t_max=2000):
-    """
-    Гамма-процентная наработка до отказа: находит такое время t,
-    что F_sys(t) = q, где F_sys(t) = 1 - R_sys(t).
-    Используется метод Брента.
-    """
-    func = lambda t: (1 - system_reliability(t)) - q
+# Второй момент для вычисления дисперсии: E[T^2] = ∫[0,∞] 2t P(t) dt
+def moment2(limit=20000):
+    val, _ = quad(lambda t: 2 * t * P(t), 0, limit)
+    return val
+
+# Дисперсия системы D = E[T^2] - (T_mid)^2
+def D(limit=20000):
+    Tmid = T_mid(limit)
+    return moment2(limit) - Tmid**2
+
+# Среднее квадратическое отклонение системы sigma
+def sigma(limit=20000):
+    var = D(limit)
+    return np.sqrt(var) if var > 0 else 0
+
+# Гамма-процентная наработка до отказа системы T_gamma:
+# Находим такое t, что F(t)=1-P(t)=gamma/100.
+def T_gamma(gamma, t_min=0, t_max=20000):
+    target = gamma / 100  # требуемая вероятность отказа
+    func = lambda t: (1 - P(t)) - target
     try:
         return brentq(func, t_min, t_max)
     except ValueError:
         return np.nan
 
 # -----------------------------
-# Основные расчёты для системы
+# Вывод численных характеристик в консоль
 # -----------------------------
-# 1. Вероятность безотказной работы приведена в графике.
-# 2. Средняя наработка до отказа (MTTF)
-mttf_sys = system_mttf()
-
-# 3. Среднее квадратическое отклонение и дисперсия времени безотказной работы
-E_T2 = system_moment2()
-variance_sys = E_T2 - mttf_sys**2
-std_sys = np.sqrt(variance_sys) if variance_sys > 0 else 0
-
-# 4. Интенсивность отказов представлена в графике.
-# 5. Плотность распределения времени до отказа представлена в графике.
-# 6. Гамма-процентная наработка до отказа (γ = 0, 10, ..., 100)
-gammas = np.arange(0, 110, 10) / 100.0  # 0.0, 0.1, ..., 1.0
-gamma_quantiles = np.array([system_ppf(q) for q in gammas])
-
-# Вывод численных значений
-print("Результаты для системы:")
-print(f"1. Вероятность безотказной работы R_sys(0): {system_reliability(0):.2f} (при t=0 всегда 1)")
-print(f"2. Средняя наработка до отказа (MTTF): {mttf_sys:.2f}")
-print(f"3. Дисперсия времени безотказной работы: {variance_sys:.2f}")
-print(f"   Среднее квадратическое отклонение: {std_sys:.2f}")
-print(f"4. Интенсивность отказов h_sys(t) представлена графиком.")
-print(f"5. Плотность распределения времени до отказа f_sys(t) представлена графиком.")
-print("6. Гамма-процентная наработка до отказа (квантили):")
-print("   Гамма (%)\tВремя до отказа")
-for gamma_val, t_val in zip(gammas * 100, gamma_quantiles):
-    print(f"   {gamma_val:8.0f}%\t{t_val:10.2f}")
+print("System Reliability Characteristics:")
+print("1. Вероятность безотказной работы P(t) при t = 0: {:.6f}".format(P(0)))
+print("2. Средняя наработка до отказа T_mid: {:.2f}".format(T_mid()))
+print("3. Дисперсия D: {:.2f}".format(D()))
+print("   Среднее квадратическое отклонение sigma: {:.2f}".format(sigma()))
+example_t = 500
+print("4. Интенсивность отказов λ(t) при t = {}: {:.6f}".format(example_t, lambda_t(example_t)))
+print("5. Плотность распределения f(t) при t = {}: {:.6f}".format(example_t, f(example_t)))
+print("6. Гамма-процентная наработка T_gamma:")
+for gamma_percent in range(0, 101, 10):
+    print("   γ = {:3d}%  →  T_gamma = {:.2f}".format(gamma_percent, T_gamma(gamma_percent)))
 
 # -----------------------------
 # Построение графиков в одном окне
 # -----------------------------
-t = np.linspace(0, 1500, 1000)  # Временная сетка для графиков
+t_values = np.linspace(0, 1500, 1000)
+f_values = [f(t) for t in t_values]         # f(t)
+P_values = [P(t) for t in t_values]           # P(t)
+lambda_values = [lambda_t(t) for t in t_values]  # λ(t)
 
-# Вычисление показателей системы
-R_sys = system_reliability(t)
-f_sys = system_pdf(t)
-h_sys = system_hazard(t)
+# Гамма-процентная наработка T_gamma для γ = 0,10,...,100
+T_gamma_values = [T_gamma(g) for g in range(0, 101, 10)]
 
-# Создаем фигуру с 2 строками и 2 столбцами графиков
-fig, axs = plt.subplots(2, 2, figsize=(14, 10))
-fig.suptitle("Показатели надежности системы", fontsize=16)
+plt.figure(figsize=(12, 8))
 
-# График 1. Вероятность безотказной работы
-axs[0, 0].plot(t, R_sys, color="blue")
-axs[0, 0].set_title("1. Вероятность безотказной работы (R_sys(t))")
-axs[0, 0].set_xlabel("Время")
-axs[0, 0].set_ylabel("R_sys(t)")
-axs[0, 0].grid(True)
+# График 1: Плотность распределения f(t)
+plt.subplot(2, 2, 1)
+plt.plot(t_values, f_values, label="f(t)", color="tab:blue")
+plt.xlabel("Время t")
+plt.ylabel("f(t)")
+plt.title("5. Плотность распределения времени до отказа f(t)")
+plt.legend()
+plt.grid()
 
-# График 2. Плотность распределения времени до отказа
-axs[0, 1].plot(t, f_sys, color="red")
-axs[0, 1].set_title("5. Плотность распределения времени до отказа (f_sys(t))")
-axs[0, 1].set_xlabel("Время")
-axs[0, 1].set_ylabel("f_sys(t)")
-axs[0, 1].grid(True)
+# График 2: Вероятность безотказной работы P(t)
+plt.subplot(2, 2, 2)
+plt.plot(t_values, P_values, label="P(t)", color="tab:green")
+plt.xlabel("Время t")
+plt.ylabel("P(t)")
+plt.title("1. Вероятность безотказной работы P(t)")
+plt.legend()
+plt.grid()
 
-# График 3. Интенсивность отказов
-axs[1, 0].plot(t, h_sys, color="green")
-axs[1, 0].set_title("4. Интенсивность отказов (h_sys(t))")
-axs[1, 0].set_xlabel("Время")
-axs[1, 0].set_ylabel("h_sys(t)")
-axs[1, 0].grid(True)
+# График 3: Интенсивность отказов λ(t)
+plt.subplot(2, 2, 3)
+plt.plot(t_values, lambda_values, label="λ(t)", color="tab:red")
+plt.xlabel("Время t")
+plt.ylabel("λ(t)")
+plt.title("4. Интенсивность отказов λ(t)")
+plt.legend()
+plt.grid()
 
-# График 4. Гамма-процентная наработка до отказа (квантили)
-width = 8  # ширина столбцов
-axs[1, 1].bar(gammas * 100, gamma_quantiles, width=width, color="purple", alpha=0.7)
-axs[1, 1].plot(gammas * 100, gamma_quantiles, 'ko-', label="Квантили")
-axs[1, 1].set_title("6. Гамма-процентная наработка до отказа")
-axs[1, 1].set_xlabel("γ, %")
-axs[1, 1].set_ylabel("Время до отказа")
-axs[1, 1].grid(True)
-axs[1, 1].legend()
+# График 4: Гамма-процентная наработка T_gamma
+plt.subplot(2, 2, 4)
+plt.plot(range(0, 101, 10), T_gamma_values, "ko-", label="T_gamma")
+plt.xlabel("γ, %")
+plt.ylabel("Время t")
+plt.title("6. Гамма-процентная наработка T_gamma")
+plt.legend()
+plt.grid()
 
-plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+plt.tight_layout()
 plt.show()
