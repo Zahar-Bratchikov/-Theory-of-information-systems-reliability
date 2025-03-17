@@ -26,7 +26,8 @@ T_gamma = np.array([stats.gamma.ppf(1 - (g / 100), k, scale=theta) for g in gamm
 # Основные характеристики (численные значения выводятся в консоль только для параметров без графиков)
 T_mid = stats.gamma.mean(k, scale=theta)   # Математическое ожидание
 D_t = stats.gamma.var(k, scale=theta)     # Дисперсия
-sigma = stats.gamma.std(k, scale=theta)
+sigma = stats.gamma.std(k, scale=theta) # Среднеквадратическое отклонение
+#Интенсивность отказов в момент времени t = 1000
 sample_t = 1000
 lambda_val = stats.gamma.pdf(sample_t, k, scale=theta) / stats.gamma.sf(sample_t, k, scale=theta)
 
