@@ -126,7 +126,7 @@ def plot_graphs(a, b):
     plt.show()
 
 # Заданные параметры распределения Симпсона: S(23, 1000)
-a, b = 23, 1000
+a, b = 23, 500
 
 # Вывод в консоль численных характеристик, для которых графики не строятся
 print("Simpson Distribution Numerical Characteristics:")
