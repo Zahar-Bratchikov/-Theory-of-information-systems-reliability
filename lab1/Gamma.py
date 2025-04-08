@@ -1,4 +1,3 @@
-
 import numpy as np
 import scipy.stats as stats
 import matplotlib.pyplot as plt
@@ -25,9 +24,10 @@ gamma_percentages = np.linspace(0, 100, 11)  # от 0% до 100% с шагом 1
 T_gamma = np.array([stats.gamma.ppf(1 - (g / 100), k, scale=theta) for g in gamma_percentages])
 
 # Основные характеристики (численные значения выводятся в консоль только для параметров без графиков)
-T_mid = k * theta
-D_t = k * theta**2
-sigma = np.sqrt(D_t)
+T_mid = stats.gamma.mean(k, scale=theta)   # Математическое ожидание
+D_t = stats.gamma.var(k, scale=theta)     # Дисперсия
+sigma = stats.gamma.std(k, scale=theta) # Среднеквадратическое отклонение
+#Интенсивность отказов в момент времени t = 1000
 sample_t = 1000
 lambda_val = stats.gamma.pdf(sample_t, k, scale=theta) / stats.gamma.sf(sample_t, k, scale=theta)
 
@@ -77,5 +77,5 @@ plt.show()
 print("Gamma Distribution Numerical Characteristics (Г(9,67)):")
 print("Средняя наработка до отказа T_mid: {:.2f}".format(T_mid))
 print("Дисперсия D: {:.2f}".format(D_t))
-print("Среднее квадратическое отклонение sigma: {:.2f}".format(sigma))
+print("Среднее квадратическое отклонение sigma: {:.2f}" .format(sigma))
 print("Интенсивность отказов λ(t) при t = {}: {:.6f}".format(sample_t, lambda_val))
